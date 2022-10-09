@@ -90,7 +90,9 @@ HAVING COUNT(Rating) >1
 DELETE Rating FROM tb_sales_market 
 WHERE Rating IN (SELECT Rating FROM CTE);
 
--- 8) Encontre Invoices com valores acima da media
+-- 8) Retornar as invoices com valores acima da media
+-- Na primeira CTE 'media_preco_unitario' queremos buscar a media de valores das invoice e dentro do paratenses temos o nome da coluna que posteriormente vamos referenciar dentro da nossa consulta
+-- Agora que nossa media foi criado trazemos ela na nova consulta filtrando apenas valores onde o valor unitario e > que avg_precos e ordemos em ordem decrescente
 WITH media_preco_unitario(avg_preco) AS
 (
 SELECT 
@@ -105,7 +107,8 @@ FROM tb_sales_market,media_preco_unitario
 WHERE Unit_price > avg_preco
 ORDER BY Unit_price DESC;
 
--- 9) Quando o Valor tiver acima da Media Retornar bom quando tiver abaixo ruim
+-- 9) Quando o Valor tiver acima da media retornar algo e quando tiver abaixo da media retornar algo
+-- Aqui temos o mesmo cenario da consulta acima com a diferenca que colocamos nosso IF para criar um flag do que esta acima da media e o que esta abaixo da media
 WITH media_preco_unitario(avg_preco) AS
 (
 SELECT 
@@ -115,13 +118,14 @@ FROM tb_sales_market
 SELECT Invoice_ID,
        Unit_price,
        ROUND(avg_preco,2) AS Media_Preco,
-       CASE WHEN Unit_price > ROUND(avg_preco,2) THEN "Bom"
-			WHEN Unit_price < ROUND(avg_preco,2) THEN "Mau"
+       CASE WHEN Unit_price > ROUND(avg_preco,2) THEN "Acima_Media"
+			WHEN Unit_price < ROUND(avg_preco,2) THEN "Abaixo_Media"
             END AS Flag
 FROM tb_sales_market,media_preco_unitario
 ORDER BY Unit_price DESC;
 
 -- 10) Encontra todas as linhas onde o nome da cidade comeca com Y
+-- Aqui e necessario realizar um expressao regular para trazer todas as cidades que comecam com Y
 SELECT * FROM tb_sales_market
 WHERE City REGEXP '^Y';
 
@@ -130,6 +134,9 @@ SELECT * FROM tb_sales_market
 WHERE City REGEXP 'Y';
 
 -- 12) Retornar apenas as linhas nas quais as vendas do periodo seguinte sao maiores que o periodo anterior
+-- Primeiro criamos uma CTE onde a clausula LEAD traz a total seguinte fazendo o partition pela linha de produto e ordenando pelas datas
+-- Depois utilizamos o CASE WHEN para fazer noss flag se for > que a venda anterior 1 se nao for 0
+-- Uma vez terminado essa logica trazemos as colunas que queremos filtrando todos os flag 1 
 WITH tb_flag AS
 (SELECT Date,
        Product_line,
@@ -148,6 +155,7 @@ FROM Tb_flag
 WHERE Flag = 1;
 
 -- 13) Retornar apenas as linhas nas quais as vendas do periodo anterior sao maiores que o periodo atual
+-- Mesma dinamica da query anterior com a diferenca que aqui usamos LAG para retornar o total anterior
 WITH Tb_Flag AS (SELECT Date,
        Product_line,
        Total,
@@ -163,7 +171,7 @@ SELECT Date,
 FROM Tb_Flag
 WHERE Flag = 1;
 
--- 15) Comparar vendas de um ano vs ano anterior mesmo mes
+-- 15) Faca uma analise de vendas do ano anterior no mesmo mes
 SELECT YEAR(Date) AS Ano,
 		month(Date) AS Mes,
 		SUM(Total) AS Total_Vendas,
@@ -185,7 +193,6 @@ GROUP BY Branch) As Avg_Total
 ON tb_sales_market.Branch = Avg_Total.Branch;
 
 -- 17) Verificar vendas por ID em cada data
-
 SET @startdate = '2022-01-01';
 SET @enddate = '2022-01-31';
 
@@ -202,7 +209,7 @@ FROM DATES
 LEFT JOIN tb_sales_market T2
 ON DATES.OrderDate = T2.Dates ;
 
--- 18) Descubra a movimentacao do estoque em 0 - 90,180 and etc.
+-- 18) Descubra a movimentacao do estoque em 0 - 90,180 and etc
 
 create table warehouse
 (
@@ -331,6 +338,3 @@ SELECT
         SUM(OnHandQuantity) AS Total
 FROM warehouse
 GROUP BY MONTH(event_datetime);
-
-
--- 22) Calcular totais por mes, ano e quarter em apenas uma query
