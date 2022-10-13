@@ -330,7 +330,7 @@ UNION ALL
 SELECT 
        YEAR(event_datetime) AS Ano,
         month(event_datetime) AS mes,
-                CASE WHEN MONTH(event_datetime) IN(1,2,3) THEN 1
+            CASE WHEN MONTH(event_datetime) IN(1,2,3) THEN 1
 			 WHEN MONTH(event_datetime) IN(4,5,6) THEN 2
              WHEN MONTH(event_datetime) IN(7,8,9) THEN 3
         ELSE 4
@@ -338,3 +338,14 @@ SELECT
         SUM(OnHandQuantity) AS Total
 FROM warehouse
 GROUP BY MONTH(event_datetime);
+
+-- 22) Calcular media movel dos ultimos tres dias por cidade
+
+SELECT 	Date,
+		city,
+		Total,
+        ROUND(AVG(Total) OVER 
+        (Partition by city ORDER BY DATE ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING),1)
+        AS mov_avg_3
+From tb_sales_market
+ORDER BY city;
