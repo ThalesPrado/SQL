@@ -2,7 +2,7 @@
 
 ***
 
-### Main instructions used in Mysql for this exercise
+### Main instructions used for this exercise
 
 - CREATE TABLE/DATABASE
 - USE 
