@@ -42,3 +42,7 @@
 
 
 [For More Info Connect with me through the link](https://www.linkedin.com/in/thales-prado-024558139/)
+
+ROW | SGBD USED
+---|---
+1 | MYSQL
