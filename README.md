@@ -39,3 +39,6 @@
 - UPDATE
 - SET
 - UNION ALL
+
+
+[For More Info Connect with through the link](https://www.linkedin.com/in/thales-prado-024558139/)
