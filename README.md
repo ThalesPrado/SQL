@@ -41,4 +41,4 @@
 - UNION ALL
 
 
-[For More Info Connect with through the link](https://www.linkedin.com/in/thales-prado-024558139/)
+[For More Info Connect with me through the link](https://www.linkedin.com/in/thales-prado-024558139/)
