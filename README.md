@@ -1,1 +1,3 @@
-# Repository created to help pricing professional to prepare themselves to SQL tests
+# Repository created to help pricing professional to prepare themselves to SQL test
+
+***
