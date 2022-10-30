@@ -402,3 +402,26 @@ insert into tb_pessoas values
 ('Thales Prado','123.456.789-00','00.123.456/0001-00');
 
 SELECT * FROM tb_pessoas;
+
+SET SQL_SAFE_UPDATES = 0;
+UPDATE tb_pessoas
+SET CPF = REPLACE(CPF,'.','');
+UPDATE tb_pessoas
+SET CPF = REPLACE(CPF,'-','');
+
+UPDATE tb_pessoas
+SET CPF = INSERT(CPF,10,0,'-');
+UPDATE tb_pessoas
+SET CPF = INSERT(CPF,7,0,'.');
+UPDATE tb_pessoas
+SET CPF = INSERT(CPF,4,0,'.');
+
+UPDATE tb_pessoas
+SET CNPJ = REPLACE(CNPJ,'.','');
+UPDATE tb_pessoas
+SET CNPJ = REPLACE(CNPJ,'-','');
+
+UPDATE tb_pessoas
+SET CNPJ = INSERT(CNPJ,10,0,"-");
+UPDATE tb_pessoas
+SET CNPJ = INSERT(CNPJ,5,0,"/");	
