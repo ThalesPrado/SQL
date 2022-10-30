@@ -1,39 +1,32 @@
-
--- Database criado baseado na base de dados do Kaggle Supermarket Sales Data in Myanmar
-
-CREATE DATABASE db_sales; -- Linha que cria meu database no mysql
-USE db_sales; -- Linha que informa ao sql o database que quero utilizar
+CREATE DATABASE db_sales;
+USE db_sales;
 
 -- Alterar nome da tabela
-ALTER TABLE db_sales_market -- Linha que alterei o nome da tabela para tb_sales_market
-RENAME tb_sales_market; 
+ALTER TABLE db_sales_market
+RENAME tb_sales_market;
 
--- 1) Qual a porcentagem de venda por linha de produto no branch B ?
-SELECT C.Branch, -- Seleciono as colunas Branch
-	   C.Product_Line, -- Linha de produto
-       C.city, -- Cidade
-       C.Total, -- Total
-       ROUND(SUM(C.Total) OVER (partition by C.Branch),2) AS total_Product, -- Nessa linha realizo o total de vendas no branch B porque quero utilizar esse total para descobrir o share de cada linha de produto
+-- 1) Descubra porcentagem de venda por linha de produto em cada Branch
+SELECT C.Branch,
+	   C.Product_Line,
+       C.city,
+       C.Total,
+       ROUND(SUM(C.Total) OVER (partition by C.Branch),2) AS total_Product,
        ROUND(C.Total * 100/SUM(C.Total) OVER (partition by C.Branch),2)  AS porcentagem_total
-       -- E aqui conseguimos a resposta para a pergunta onde temos o total por cada linha de produto
-FROM tb_sales_market C -- Utilizei um alias para ficar mais facil na hora de chamar as colunas 
-WHERE C.Branch = 'B' -- Aqui realizo o filtro do branch
-GROUP BY C.Product_Line -- Aqui realizo o agrupamento dos totais pro linha de produto
-ORDER BY C.Product_Line desc; -- E finalmente fazemos a ordenacao
+FROM tb_sales_market C
+WHERE C.Branch = 'B'
+GROUP BY C.Product_Line
+ORDER BY C.Product_Line desc;
 
--- 2) Qual acumulado por dia ?
-SELECT  -- Seleciono as colunas de data e quantidade para fazer o check se de fato o calculo esta correto
+-- 2) Criar uma nova coluna com o total acumulado por dia
+SELECT  
     C.Date,
     C.Quantity,
-    SUM(C.Quantity) OVER (ORDER BY C.Date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS acumulado -- Nessa janela que o calculo e realizado com os totais pensado que tambem poderiamos ter o calculo de MTD ou YTD seguindo alguma logica semelhante
+    SUM(C.Quantity) OVER (ORDER BY C.Date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS acumulado
 FROM tb_sales_market C
 ORDER BY C.Date;
 	
--- 3) Qual a mediana da quantidade vendida ?
--- Criamos primeiro a CTE com quantidade e a funcao row_number cria o index para cada linha dentro dessa nossa janela
--- Depois invocamos a CTE dentro da noss consulta da mediana utilizando as instrucoes de floor que faz o arredondamento desse numero da coluna para baixo e ceil que faz o arredodamento para cima
--- Como essa consulta retorna apenas duas linhas tiramos a media aritmetica e achamos o valor da mediana
-with cte as ( 
+-- 3) Calcule a mediana da quantidade vendida
+with cte as (
   select quantity, 
     row_number() over (order by quantity) as r,
     count(quantity) over () as c 
@@ -46,25 +39,33 @@ median as (
 )
 select avg(quantity) from median;
 
--- 4) Quais sao as diferencas de ranking com as funcoes rank, dense_rank e row_number ?
+with cte as (
+  select quantity, 
+    row_number() over (order by quantity) as r,
+    count(quantity) over () as c 
+  from tb_sales_market
+),
+median as (
+  select quantity 
+  from cte
+  where r in (floor((c+1)/2), ceil((c+1)/2))
+) SELECT * FROM median;
 
+-- 4) Diferencas do rankeamento com rank, dense, row
 SELECT *,
-RANK () OVER (ORDER BY Rating DESC) AS Rank1, -- Aqui como temos 5 linhas com o mesmo rating de 10 o proximo valor de rank e 6. Inves de seguir on ranking sequencial
-DENSE_RANK () OVER (ORDER BY Rating DESC) AS Rank_Dense, -- Aqui temos todos as linhas com o rating de 10 como o primeiro do ranking porem inves de 6 nesse segundo caso o dense_rank segue a ordem sequencial para 2,3 assim sucessivamente
-ROW_NUMBER () OVER (ORDER BY Rating DESC) AS Rank_Row_Number -- Aqui temos um numero diferente para cada linha independente dos valores. Mesmo as 5 primeiras linhas tendo um valor de 10 retornamos o valor de 1,2,3 seguindo uma ordem sequencial.
+RANK () OVER (ORDER BY Rating DESC) AS Rank1,
+DENSE_RANK () OVER (ORDER BY Rating DESC) AS Rank_Dense,
+ROW_NUMBER () OVER (ORDER BY Rating DESC) AS Rank_Row_Number
 FROM tb_sales_market;
 
--- 5) Retornar apenas linhas duplicadas para cada rating
--- A Primeira parte do problema precisamos fazer uma contagem para cada rating dentro da nossa base de dados depois disso agrupamos com a clasula GROUP BY e uma vez que temos os totais filtamos com o having tudo que e acima de 1
+-- 5) Retorne somente as linhas duplicadas por Rating
 SELECT Rating,
 	   COUNT(Rating) AS Total_Contagem
 FROM tb_sales_market
 GROUP BY Rating
 HAVING COUNT(Rating) >1;
 
--- 6) Retornar a linha com o maior rating no branch A
--- Primeiro usamos o MAX de rating na CTE no branch A
--- Depois retornamos essa linha com o total filtrando de acordo com o que temos na CTE
+-- 6) Qual o maior score na base de dados no Branch A
 WITH CTE AS
 			(
 			SELECT
@@ -76,9 +77,7 @@ SELECT * FROM tb_sales_market
 WHERE Rating = (SELECT * FROM CTE)
 AND Branch = 'A';
 
--- 7) Delete linhas com rating duplicados dentro do dataset
--- Primeiro na CTE temos o filto das linhas na quais temos duplicidades usando o having
--- Uma vez que temos esse subset chamamos a clausula where com valores dentro da lista com a clausula IN
+-- 7) Como Deletar linhas duplicadas
 WITH CTE AS
 (
 SELECT Rating,
@@ -90,9 +89,7 @@ HAVING COUNT(Rating) >1
 DELETE Rating FROM tb_sales_market 
 WHERE Rating IN (SELECT Rating FROM CTE);
 
--- 8) Retornar as invoices com valores acima da media
--- Na primeira CTE 'media_preco_unitario' queremos buscar a media de valores das invoice e dentro do paratenses temos o nome da coluna que posteriormente vamos referenciar dentro da nossa consulta
--- Agora que nossa media foi criado trazemos ela na nova consulta filtrando apenas valores onde o valor unitario e > que avg_precos e ordemos em ordem decrescente
+-- 8) Encontre Invoices com valores acima da media
 WITH media_preco_unitario(avg_preco) AS
 (
 SELECT 
@@ -107,8 +104,7 @@ FROM tb_sales_market,media_preco_unitario
 WHERE Unit_price > avg_preco
 ORDER BY Unit_price DESC;
 
--- 9) Quando o Valor tiver acima da media retornar algo e quando tiver abaixo da media retornar algo
--- Aqui temos o mesmo cenario da consulta acima com a diferenca que colocamos nosso IF para criar um flag do que esta acima da media e o que esta abaixo da media
+-- 9) Quando o Valor tiver acima da Media Retornar bom quando tiver abaixo ruim
 WITH media_preco_unitario(avg_preco) AS
 (
 SELECT 
@@ -118,14 +114,13 @@ FROM tb_sales_market
 SELECT Invoice_ID,
        Unit_price,
        ROUND(avg_preco,2) AS Media_Preco,
-       CASE WHEN Unit_price > ROUND(avg_preco,2) THEN "Acima_Media"
-			WHEN Unit_price < ROUND(avg_preco,2) THEN "Abaixo_Media"
+       CASE WHEN Unit_price > ROUND(avg_preco,2) THEN "Bom"
+			WHEN Unit_price < ROUND(avg_preco,2) THEN "Mau"
             END AS Flag
 FROM tb_sales_market,media_preco_unitario
 ORDER BY Unit_price DESC;
 
 -- 10) Encontra todas as linhas onde o nome da cidade comeca com Y
--- Aqui e necessario realizar um expressao regular para trazer todas as cidades que comecam com Y
 SELECT * FROM tb_sales_market
 WHERE City REGEXP '^Y';
 
@@ -134,9 +129,6 @@ SELECT * FROM tb_sales_market
 WHERE City REGEXP 'Y';
 
 -- 12) Retornar apenas as linhas nas quais as vendas do periodo seguinte sao maiores que o periodo anterior
--- Primeiro criamos uma CTE onde a clausula LEAD traz a total seguinte fazendo o partition pela linha de produto e ordenando pelas datas
--- Depois utilizamos o CASE WHEN para fazer noss flag se for > que a venda anterior 1 se nao for 0
--- Uma vez terminado essa logica trazemos as colunas que queremos filtrando todos os flag 1 
 WITH tb_flag AS
 (SELECT Date,
        Product_line,
@@ -155,7 +147,6 @@ FROM Tb_flag
 WHERE Flag = 1;
 
 -- 13) Retornar apenas as linhas nas quais as vendas do periodo anterior sao maiores que o periodo atual
--- Mesma dinamica da query anterior com a diferenca que aqui usamos LAG para retornar o total anterior
 WITH Tb_Flag AS (SELECT Date,
        Product_line,
        Total,
@@ -171,7 +162,7 @@ SELECT Date,
 FROM Tb_Flag
 WHERE Flag = 1;
 
--- 15) Faca uma analise de vendas do ano anterior no mesmo mes
+-- 15) Comparar vendas de um ano vs ano anterior mesmo mes
 SELECT YEAR(Date) AS Ano,
 		month(Date) AS Mes,
 		SUM(Total) AS Total_Vendas,
@@ -193,6 +184,7 @@ GROUP BY Branch) As Avg_Total
 ON tb_sales_market.Branch = Avg_Total.Branch;
 
 -- 17) Verificar vendas por ID em cada data
+
 SET @startdate = '2022-01-01';
 SET @enddate = '2022-01-31';
 
@@ -209,8 +201,7 @@ FROM DATES
 LEFT JOIN tb_sales_market T2
 ON DATES.OrderDate = T2.Dates ;
 
--- 18) Descubra a movimentacao do estoque em 0 - 90,180 and etc
-
+-- 18) Descubra a movimentacao do estoque em 0 - 90,180 and etc.
 create table warehouse
 (
 ID varchar(10),
@@ -291,6 +282,16 @@ FROM invetario90Final T1
 CROSS JOIN invetario180 T2
 CROSS JOIN invetario270 T3;
 
+-- 17V2) Verificar totais acumulados de estoque vs ano anterior
+
+SELECT  YEAR(event_datetime) AS Ano,
+		month(event_datetime) AS Mes,
+		SUM(OnHandQuantity) AS Total_Vendas,
+        LAG(SUM(OnHandQuantity),12) OVER (PARTITION BY YEAR(event_datetime) ORDER BY month(event_datetime)) AS Mesmo_Mes_Ano_Anterior
+FROM warehouse
+WHERE YEAR(event_datetime) IN (2019,2020)
+GROUP BY YEAR(event_datetime),month(event_datetime);
+
 -- 19) Insere Valores na Tabela warehousefinal de acordo com os dados da tabela warehouse
 create table warehouse2
 (
@@ -330,7 +331,7 @@ UNION ALL
 SELECT 
        YEAR(event_datetime) AS Ano,
         month(event_datetime) AS mes,
-            CASE WHEN MONTH(event_datetime) IN(1,2,3) THEN 1
+		CASE WHEN MONTH(event_datetime) IN(1,2,3) THEN 1
 			 WHEN MONTH(event_datetime) IN(4,5,6) THEN 2
              WHEN MONTH(event_datetime) IN(7,8,9) THEN 3
         ELSE 4
@@ -339,13 +340,65 @@ SELECT
 FROM warehouse
 GROUP BY MONTH(event_datetime);
 
+
 -- 22) Calcular media movel dos ultimos tres dias por cidade
 
 SELECT 	Date,
 		city,
 		Total,
-        ROUND(AVG(Total) OVER 
-        (Partition by city ORDER BY DATE ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING),1)
+        ROUND(AVG(Total) OVER (Partition by city ORDER BY DATE ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING),1)
         AS mov_avg_3
 From tb_sales_market
 ORDER BY city;
+
+-- 23) Trazer a segunda venda mais recente por ID
+WITH CTE AS(
+			SELECT *,
+			ROW_NUMBER() OVER(partition by ID order by event_datetime) AS indexrow,
+			COUNT(*) OVER(partition by ID order by event_datetime) AS contagem_errada,
+			COUNT(*) OVER(partition by ID order by event_datetime 
+						  RANGE BETWEEN UNBOUNDED PRECEDING 
+						  AND UNBOUNDED FOLLOWING) AS contagem_certa
+FROM warehouse2)
+SELECT * FROM CTE
+WHERE indexrow = CASE WHEN contagem_certa = 1 THEN 1 ELSE contagem_certa - 1 END 
+;
+
+-- 24) Faca um unpivot da tabela
+CREATE VIEW unpivottable AS (
+		SELECT  event_type,
+		OnHandQuantity,
+        CASE WHEN event_type = "OutBound" THEN OnHandQuantity END AS OutBound,
+		CASE WHEN event_type = "InBound" THEN OnHandQuantity END AS InBound
+	    FROM warehouse2
+        );
+SELECT * FROM unpivottable;
+
+CREATE VIEW unpivottable2 AS(
+			SELECT event_type,
+					SUM(OutBound) AS Outbound,
+                    SUM(InBound) AS Inbound
+                    FROM unpivottable
+			GROUP BY event_type
+);
+SELECT * FROM unpivottable2;
+
+CREATE VIEW unpivottable3 AS (
+			SELECT event_type,
+                   coalesce(SUM(OutBound),0),
+                   coalesce(SUM(InBound),0) 
+			FROM unpivottable2
+);
+SELECT * FROM unpivottable3;
+
+-- 25) Formatar mascara do CPF e do CNPJ
+create table tb_pessoas
+(
+Nome varchar(20),
+CPF varchar(50),
+CNPJ varchar(50)
+);
+insert into tb_pessoas values
+('Thales Prado','123.456.789-00','00.123.456/0001-00');
+
+SELECT * FROM tb_pessoas;
