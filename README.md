@@ -43,7 +43,7 @@
 
 [For More Info Connect with me through the link](https://www.linkedin.com/in/thales-prado-024558139/)
 
-***Through your pricing/analytics journey you might encounter the need of working with some SGBD here are the most common instruction in SQL.
+***Through your pricing/analytics journey you might encounter the need of working with some SGBD here are the most common instruction in SQL***.
 
 ROW | SGBD USED
 ---|---
